@@ -1,0 +1,66 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: gateway-service
+    instance_id: gateway-service
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  cloud:
+    gateway:
+      routes:
+        - id: g-field-service
+          uri: lb://G-FIELD-SERVICE
+          predicates:
+            - Path=/g-field-service/**
+          filters:
+            - RewritePath=/g-field-service/(?<segment>.*), /$\{segment}
+            - GfieldServiceAuthFilter
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,NOT_FOUND
+                methods: GET
+
+        - id: admin-service
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/admin-service/**
+          filters:
+            - RewritePath=/admin-service/(?<segment>.*), /$\{segment}
+#            - AdminServiceAuthFilter
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,NOT_FOUND
+                methods: GET
+
+        - id: location-service
+          uri: lb://LOCATION-SERVICE
+          predicates:
+            - Path=/location-service/**
+          filters:
+            - RewritePath=/location-service/(?<segment>.*), /$\{segment}
+            - LocationServiceFilter
+            - name: Retry
+              args:
+                retries: 3
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,NOT_FOUND
+                methods: GET
+      default-filters:
+        - name: CustomGlobalFilter
+          args:
+            basMessage: Spring Cloud Gateway Global Filter
+            preLogger: true
+            postLogger: true
+
+
+eureka:
+  instance:
+    instance-id: gateway-service-instance
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka, http://localhost:8762/eureka
